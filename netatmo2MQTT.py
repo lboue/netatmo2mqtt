@@ -24,12 +24,16 @@
 import os, re, time, json, argparse
 import requests                     # pip install requests
 import paho.mqtt.publish as publish # pip install paho-mqtt
+import pprint
 
 verbose = False
 NETATMO_BASE_URL = 'https://api.netatmo.com/api'
 NETATMO_HOMESDATA_URL = NETATMO_BASE_URL + '/homesdata'
 NETATMO_HOMESTATUS_URL = NETATMO_BASE_URL + '/homestatus'
 NETATMO_OAUTH_URL = 'https://api.netatmo.com/oauth2/token'
+
+pp = pprint.PrettyPrinter(indent=4)
+
 
 def debug(msg):
   if verbose:
@@ -66,23 +70,79 @@ def getNetAtmoThermostat(naClientId, naClientSecret, naRefreshToken):
   if not status:
       return (False, accessToken, {})
   headers = {"Authorization":"Bearer " + accessToken}
+  # HOMESDATA
   try:
     r = requests.get(NETATMO_HOMESDATA_URL, headers=headers)
     data = r.json()
+    #pp.pprint(data)
     if r.status_code != 200 or not 'homes' in data['body'] or not 'modules' in data['body']['homes'][0]:
       debug ("NetAtmo error while reading homesdata response {0}".format(json.dumps(data)))
       return (False, {"time": tstamp, "message": "Netatmo data not well formed"}, {})
+    # HOMESTATUS
     res = requests.get(NETATMO_HOMESTATUS_URL, headers=headers, params={ 'home_id': data['body']['homes'][0]['id'] })
     homeData = res.json()
+    #pp.pprint(homeData)
     if res.status_code != 200 or not 'home' in homeData['body'] or not 'rooms' in homeData['body']['home']:
       debug ("NetAtmo error while reading homestatus response {0}".format(json.dumps(data)))
       return (False, {"time": tstamp, "message": "Netatmo data not well formed"}, {})
     newObject = {"time": tstamp, "temp": homeData['body']['home']['rooms'][0]['therm_measured_temperature']}
     newObjectSetpoint = {"time": tstamp, "temp": homeData['body']['home']['rooms'][0]['therm_setpoint_temperature']}
+    
+    rooms = homeData['body']['home']['rooms']
+    pp.pprint(rooms)
+    #debug("Room = {0}>".format(rooms))
+    
+    # DEBUG modules
+    modules = homeData['body']['home']['modules']
+    pp.pprint(modules)
+    
     return (status, newObject, newObjectSetpoint)
   except requests.exceptions.RequestException as e:
     return (False, {"time": tstamp, "message": "NetAtmo not available : " + str(e)}, {})
 
+
+def getNetAtmoValves(naClientId, naClientSecret, naRefreshToken):
+  tstamp = int(time.time())
+  status, accessToken = getNetAtmoAccessToken(naClientId, naClientSecret, naRefreshToken)
+  if not status:
+      return (False, accessToken, {})
+  headers = {"Authorization":"Bearer " + accessToken}
+  # HOMESDATA
+  try:
+    r = requests.get(NETATMO_HOMESDATA_URL, headers=headers)
+    data = r.json()
+    #pp.pprint(data)
+    if r.status_code != 200 or not 'homes' in data['body'] or not 'modules' in data['body']['homes'][0]:
+      debug ("NetAtmo error while reading homesdata response {0}".format(json.dumps(data)))
+      return (False, {"time": tstamp, "message": "Netatmo data not well formed"}, {})
+    # HOMESTATUS
+    res = requests.get(NETATMO_HOMESTATUS_URL, headers=headers, params={ 'home_id': data['body']['homes'][0]['id'] })
+    homeData = res.json()
+    #pp.pprint(homeData)
+    if res.status_code != 200 or not 'home' in homeData['body'] or not 'rooms' in homeData['body']['home']:
+      debug ("NetAtmo error while reading homestatus response {0}".format(json.dumps(data)))
+      return (False, {"time": tstamp, "message": "Netatmo data not well formed"}, {})
+    newObject = {"time": tstamp, "temp": homeData['body']['home']['rooms'][1]['therm_measured_temperature']}
+    newObjectSetpoint = {"time": tstamp, "temp": homeData['body']['home']['rooms'][1]['therm_setpoint_temperature']}
+    newObjectRequest = {
+                        "time": tstamp, 
+                        "id": homeData['body']['home']['rooms'][1]['id'],
+                        "request": homeData['body']['home']['rooms'][1]['heating_power_request']
+                        }
+    
+    '''
+    rooms = homeData['body']['home']['rooms']
+    pp.pprint(rooms)
+    #debug("Room = {0}>".format(rooms))
+    
+    # DEBUG modules
+    modules = homeData['body']['home']['modules']
+    pp.pprint(modules)
+    '''
+    
+    return (status, newObject, newObjectSetpoint, newObjectRequest)
+  except requests.exceptions.RequestException as e:
+    return (False, {"time": tstamp, "message": "NetAtmo not available : " + str(e)}, {})
 
 parser = argparse.ArgumentParser(description='Read current temperature and setpoint from NetAtmo API and send them to a MQTT broker.', formatter_class=argparse.ArgumentDefaultsHelpFormatter)
 parser.add_argument('-a', '--client-secret', dest='naClientSecret', action="store", help='NetAtmo Client Secret / Can also be read from NETATMO_CLIENT_SECRET env var.',
@@ -108,14 +168,24 @@ parser.add_argument('-v', '--verbose', dest='verbose', action="store_true", defa
 args = parser.parse_args()
 verbose = args.verbose
 
-status, data, dataSetpoint = getNetAtmoThermostat(args.naClientId, args.naClientSecret, args.naRefreshToken)
+#status, data, dataSetpoint = getNetAtmoThermostat(args.naClientId, args.naClientSecret, args.naRefreshToken)
+status, data, dataSetpoint, powerRequest = getNetAtmoValves(args.naClientId, args.naClientSecret, args.naRefreshToken)
+
 
 if status:
   jsonString = json.dumps(data)
   jsonStringSetpoint = json.dumps(dataSetpoint)
-  debug("Success with message (for current temperature) <{0}>".format(jsonString))
-  debug("Success with message (for setpoint temperature) <{0}>".format(jsonStringSetpoint))
 
+  date_current = time.strftime("%a, %d %b %Y %H:%M:%S %Z", time.localtime(data["time"]))
+  date_setpoint = time.strftime("%a, %d %b %Y %H:%M:%S %Z", time.localtime(dataSetpoint["time"]))
+  #debug("Success with message (for current temperature) <{0}>".format(jsonString))
+  #debug("Success with message (for setpoint temperature) <{0}>".format(jsonStringSetpoint))
+  debug("Success with message (for current temperature) <{0} ; temp={1}>".format(date_current, data["temp"]))
+  debug("Success with message (for setpoint temperature) <{0} ; temp={1}>".format(date_setpoint, dataSetpoint["temp"]))
+  
+  # TESTING heating_power_request
+  debug("Success with message (for Power Request) <{0} ; request={1} ; id={2}>".format(date_setpoint, powerRequest["request"], powerRequest["id"]))
+  
   if not args.dryRun:
     publish.single(args.topic, jsonString, hostname=args.host)
     publish.single(args.topicSetpoint, jsonStringSetpoint, hostname=args.host)
