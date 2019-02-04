@@ -88,12 +88,49 @@ def getNetAtmoThermostat(naClientId, naClientSecret, naRefreshToken):
     newObject = {"time": tstamp, "temp": homeData['body']['home']['rooms'][0]['therm_measured_temperature']}
     newObjectSetpoint = {"time": tstamp, "temp": homeData['body']['home']['rooms'][0]['therm_setpoint_temperature']}
     
+    home_module = homeData['body']['home']['modules']
+    print(home_module)
+    
+    
     rooms = homeData['body']['home']['rooms']
+    '''
+    [   {   'anticipating': False,
+            'id': '521888878',
+            'open_window': False,
+            'reachable': True,
+            'therm_measured_temperature': 21.2,
+            'therm_setpoint_end_time': 0,
+            'therm_setpoint_mode': 'schedule',
+            'therm_setpoint_start_time': 0,
+            'therm_setpoint_temperature': 20},
+        {   'anticipating': False,
+            'heating_power_request': 0,
+            'id': '3350550937',
+            'open_window': False,
+            'reachable': True,
+            'therm_measured_temperature': 18.5,
+            'therm_setpoint_end_time': 0,
+            'therm_setpoint_mode': 'schedule',
+            'therm_setpoint_start_time': 0,
+            'therm_setpoint_temperature': 18.5},
+        {   'anticipating': False,
+            'heating_power_request': 35,
+            'id': '3636941712',
+            'open_window': False,
+            'reachable': True,
+            'therm_measured_temperature': 18.5,
+            'therm_setpoint_end_time': 0,
+            'therm_setpoint_mode': 'schedule',
+            'therm_setpoint_start_time': 0,
+            'therm_setpoint_temperature': 18.5}]
+        '''
+    print("rooms:")
     pp.pprint(rooms)
     #debug("Room = {0}>".format(rooms))
     
-    # DEBUG modules
+    # DEBUG home modules (firmware, etc)
     modules = homeData['body']['home']['modules']
+    print("modules:")
     pp.pprint(modules)
     
     return (status, newObject, newObjectSetpoint)
@@ -129,6 +166,19 @@ def getNetAtmoValves(naClientId, naClientSecret, naRefreshToken):
                         "id": homeData['body']['home']['rooms'][1]['id'],
                         "request": homeData['body']['home']['rooms'][1]['heating_power_request']
                         }
+                        
+
+    # DEBUG home modules (name, type, room id)
+    homes_modules = data['body']['homes'][0]['modules']
+    #pp.pprint(homes_modules)
+    print("modules")
+    for module in homes_modules:
+        #pp.pprint(module)
+        print("\tname:", module["name"], "type:", module["type"])
+
+    # DEBUG home modules (firmware, etc)
+    #home_module = homeData['body']['home']['modules']
+    #pp.pprint(home_module)
     
     '''
     rooms = homeData['body']['home']['rooms']
