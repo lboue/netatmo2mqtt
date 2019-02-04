@@ -149,8 +149,13 @@ if status:
   for data, dataSetpoint in zip(dataArray, dataSetpointArray):
     jsonString = json.dumps(data)
     jsonStringSetpoint = json.dumps(dataSetpoint)
-    debug("Success with message (for current temperature) <{0}>".format(jsonString))
-    debug("Success with message (for setpoint temperature) <{0}>".format(jsonStringSetpoint))
+    date_current = time.strftime("%a, %d %b %Y %H:%M:%S %Z", time.localtime(data["time"]))
+    date_setpoint = time.strftime("%a, %d %b %Y %H:%M:%S %Z", time.localtime(dataSetpoint["time"]))
+    
+    debug("Success with message (for current temperature) <{0} ; temp={1}>".format(date_current, data["temp"]))
+    debug("Success with message (for setpoint temperature) <{0} ; temp={1}>".format(date_setpoint, dataSetpoint["temp"]))
+    #debug("Success with message (for current temperature) <{0}>".format(jsonString))
+    #debug("Success with message (for setpoint temperature) <{0}>".format(jsonStringSetpoint))
 
     if oldTimestamp >= data["time"]:
       print ("No new data found")
