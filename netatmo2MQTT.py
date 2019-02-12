@@ -171,24 +171,31 @@ def getNetAtmoValves(naClientId, naClientSecret, naRefreshToken):
     # DEBUG home modules (name, type, room id)
     homes_modules = data['body']['homes'][0]['modules']
     #pp.pprint(homes_modules)
-    print("modules")
+    print("modules:")
     for module in homes_modules:
         #pp.pprint(module)
         print("\tname:", module["name"], "type:", module["type"])
-
+    print("\n")
+    
     # DEBUG home modules (firmware, etc)
     #home_module = homeData['body']['home']['modules']
     #pp.pprint(home_module)
     
-    '''
     rooms = homeData['body']['home']['rooms']
-    pp.pprint(rooms)
+    print("rooms:")
+    #pp.pprint(rooms)
     #debug("Room = {0}>".format(rooms))
-    
+    for room in rooms:
+        #pp.pprint(room)
+        print("## ID:", room['id'],"##")
+        print("\t", "measured_temperature:", room['therm_measured_temperature'])
+        #print("\t", "heating_power_request:", room['heating_power_request'])
+        print("\t", "open_window:", room['open_window'])
+        print("\n")
+   
     # DEBUG modules
     modules = homeData['body']['home']['modules']
-    pp.pprint(modules)
-    '''
+    #pp.pprint(modules)
     
     return (status, newObject, newObjectSetpoint, newObjectRequest)
   except requests.exceptions.RequestException as e:
@@ -244,4 +251,3 @@ else:
   debug("Failure with message <{0}>".format(jsonString))
   if not args.dryRun:
     publish.single(args.topicError, jsonString, hostname=args.host)
-
